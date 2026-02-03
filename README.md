@@ -8,9 +8,10 @@ A minimal Address Book API built with FastAPI, SQLite, and SQLAlchemy.
 - Automatic database validation.
 - SQLite database storage.
 - Alembic migrations integrated.
+- SQLAlchemy for ORM.
 
 ## Project Structure
-- `api/models/address.py`: SQLAlchemy database models.
+- `api/models/address.py`: Database models.
 - `api/schemas/schemas.py`: Pydantic schemas for validation.
 - `api/routers/address.py`: API endpoints.
 - `api/service/address_service.py`: Business logic and database interactions.
