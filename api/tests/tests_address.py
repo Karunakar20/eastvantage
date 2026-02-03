@@ -1,3 +1,8 @@
+
+import sys
+import os
+sys.path.append(os.getcwd())
+
 from fastapi.testclient import TestClient
 from main import app
 import logging
@@ -16,8 +21,21 @@ def test_workflow():
     }
     response = client.post("/addresses/", json=payload_a)
     assert response.status_code == 201
-    address_a = response.json()
-    print("Created Address A:", address_a)
+    address_a_data = response.json()
+    print("Created Address A:", address_a_data)
+
+    # Fetch ID because POST response model (AddressSchema) hides it
+    # We find it by matching coordinates (or just picking the last one if we assume sequential tests)
+    response = client.get("/addresses/")
+    all_addresses = response.json()
+    # Find address A in list
+    address_a = next(
+        (a for a in all_addresses if abs(a["latitude"] - 12.9716) < 0.0001 and abs(a["longitude"] - 77.5946) < 0.0001), 
+        None
+    )
+    assert address_a is not None, "Address A not found in DB after creation"
+    print("Fetched Address A with ID:", address_a)
+
 
     # 2. Create Address B (Chennai) ~300km away
     payload_b = {
@@ -30,13 +48,25 @@ def test_workflow():
     }
     response = client.post("/addresses/", json=payload_b)
     assert response.status_code == 201
-    address_b = response.json()
-    print("Created Address B:", address_b)
+    address_b_data = response.json()
+    print("Created Address B:", address_b_data)
+
+    # Fetch ID for B
+    response = client.get("/addresses/")
+    all_addresses = response.json()
+    address_b = next(
+        (a for a in all_addresses if abs(a["latitude"] - 13.0827) < 0.0001 and abs(a["longitude"] - 80.2707) < 0.0001), 
+        None
+    )
+    assert address_b is not None, "Address B not found in DB after creation"
+    print("Fetched Address B with ID:", address_b)
+
 
     # 3. Update Address A
     updated_payload = {"street": "Brigade Road"}
     response = client.put(f"/addresses/{address_a['id']}", json=updated_payload)
     assert response.status_code == 200
+    # Response model also hides ID, just check street
     assert response.json()["street"] == "Brigade Road"
     print("Updated Address A")
 

@@ -51,5 +51,5 @@ Open `http://127.0.0.1:8000/docs` to view the interactive Swagger UI.
 ## Testing
 You can run the provided manual check script:
 ```bash
-python3 test_script.py
+python3 api/tests/tests_address.py
 ```
