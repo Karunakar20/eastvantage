@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from api.models.address import Address
 from api.schemas.schemas import AddressSchema
 from math import radians, cos, sin, asin, sqrt
@@ -18,7 +19,6 @@ class AddressService:
         self.id = address_id
 
     def __getAddress(self):
-        print("self.id", self.id)
         if not self.id:
             return None
         return self.db.query(Address).filter(Address.id == self.id).first()
@@ -32,39 +32,54 @@ class AddressService:
         if not self.data:
             raise ValueError("Address data is required")
 
-        if self.id:
-            db_address = self.__getAddress()
-            print("db_address", db_address)
-            if db_address:
+        try:
+            # UPDATE
+            if self.id:
+                db_address = self.__getAddress()
+                if not db_address:
+                    raise ValueError("Address not found")
+
                 update_data = self.data.model_dump(
-                        exclude_unset=True,
-                        exclude={"id"}
-                    )
-                print("update_data", update_data)
+                    exclude_unset=True,
+                    exclude={"id"}
+                )
+
                 for key, value in update_data.items():
                     setattr(db_address, key, value)
 
                 self.db.commit()
                 self.db.refresh(db_address)
                 return db_address
-        print("-----")
-        # Create new
-        # Exclude 'id' to ensure database autoincrement usage
-        db_address = Address(**self.data.model_dump(exclude={"id"}))
-        self.db.add(db_address)
-        self.db.commit()
-        self.db.refresh(db_address)
-        return db_address
 
+            # CREATE
+            db_address = Address(
+                **self.data.model_dump(exclude={"id"})
+            )
+            self.db.add(db_address)
+            self.db.commit()
+            self.db.refresh(db_address)
+            return db_address
+
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise e
+    
     def deleteAddress(self):
-        db_address = self.__getAddress()
-        print("db_address", db_address)
-        if not db_address:
-            return False
+        """
+        Delete an address by ID.
+        """
+        try:
+            db_address = self.__getAddress()
+            if not db_address:
+                return False
 
-        self.db.delete(db_address)
-        self.db.commit()
-        return True
+            self.db.delete(db_address)
+            self.db.commit()
+            return True
+
+        except SQLAlchemyError:
+            self.db.rollback()
+            raise
 
     @staticmethod
     def __calculateDistance(lat1, lon1, lat2, lon2):
@@ -78,7 +93,6 @@ class AddressService:
         a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
         c = 2 * asin(sqrt(a))
         r = 6371  # Earth radius in km
-        print("-------------------", c * r)
         return c * r
 
     def getAddressesWithiDistance(self):
@@ -101,8 +115,6 @@ class AddressService:
                 address.latitude,
                 address.longitude
             )
-
-            print(dist, self.data.distance)
 
             if dist <= self.data.distance:
                 result.append(address)
